@@ -10,7 +10,7 @@ A three-tier web application infrastructure on AWS that survives AZ failures (Mu
 
 ## Architecture
 
-![Architecture](Architecture%20Diagram.png)
+![Architecture Diagram](Architecture%20Diagram.png)
 
 | Tier            | Components                        | Resilience mechanism                            |
 | --------------- | --------------------------------- | ----------------------------------------------- |
@@ -26,29 +26,51 @@ A three-tier web application infrastructure on AWS that survives AZ failures (Mu
 
 ## Rubric Coverage
 
-| Pillar                | Points | Evidence                                                                                     |
-| --------------------- | ------ | -------------------------------------------------------------------------------------------- |
-| **High Availability** | 25     | `docs/screenshots/1.1` – `1.13`, [`spofs.md`](spofs.md)                                      |
-| **Scalability**       | 25     | `docs/screenshots/2.x`, `load-test-*`, [`docs/load-test/`](docs/load-test)                   |
-| **Disaster Recovery** | 25     | `docs/screenshots/dr-*` and `ha-primary-*`, [`docs/dr/dr-runbook.md`](docs/dr/dr-runbook.md) |
-| **Observability**     | 15     | `docs/screenshots/observability-*`, [`docs/observability/`](docs/observability)              |
-| **Documentation**     | 10     | This README, runbook, SPOF analysis                                                          |
+| Pillar                | Points | Evidence section                                                                                  |
+| --------------------- | ------ | ------------------------------------------------------------------------------------------------- |
+| **High Availability** | 25     | [Day 1 below](#day-1--high-availability-25-pts), [`spofs.md`](spofs.md)                           |
+| **Scalability**       | 25     | [Day 2 below](#day-2--scalability-25-pts), [`docs/load-test/`](docs/load-test)                    |
+| **Disaster Recovery** | 25     | [Day 3 below](#day-3--disaster-recovery-25-pts), [`docs/dr/dr-runbook.md`](docs/dr/dr-runbook.md) |
+| **Observability**     | 15     | [Day 4 below](#day-4--observability-15-pts), [`docs/observability/`](docs/observability)          |
+| **Documentation**     | 10     | This README, runbook, SPOF analysis                                                               |
 
 ---
 
 ## Day 1 — High Availability (25 pts)
 
-Built a three-tier VPC in `eu-west-1` spanning two AZs (`eu-west-1a`, `eu-west-1b`) with isolated public / private-app / database subnets. Every layer that could be a single point of failure was duplicated:
+Built a three-tier VPC in `eu-west-1` spanning two AZs (`eu-west-1a`, `eu-west-1b`) with isolated public / private-app / database subnets. Every layer that could be a single point of failure was duplicated.
 
-- **Per-AZ NAT Gateways** instead of a single NAT — eliminates the cross-AZ failure dependency that the single-NAT shortcut introduces.
-- **ALB and ASG** spread across both AZs; ASG uses ELB-based health checks (catches "instance up, app down").
-- **RDS MySQL Multi-AZ** with synchronous standby in a second AZ; encrypted at rest; not publicly accessible.
-- **DynamoDB Global Tables** for session state, replicated to `eu-central-1` for cross-region resilience.
-- **Security baseline:** SSM Session Manager only (no SSH exposure), IMDSv2 required, layered SG chain (ALB → EC2 → RDS).
+### Per-AZ NAT Gateways
 
-The complete single-point-of-failure analysis — including remaining SPOFs the design intentionally leaves for the DR phase — is in [`spofs.md`](spofs.md).
+Two NAT Gateways, one per AZ — rejects the common single-NAT shortcut that introduces cross-AZ failure dependency.
 
-**Visual evidence:** screenshots `1.1` through `1.13` in `docs/screenshots/`.
+![NAT Gateways](docs/screenshots/1.7%20NAT%20Gateways%20Created.png)
+
+### Multi-AZ Application Load Balancer
+
+ALB spans both AZs; ASG uses ELB-based health checks (catches "instance up, app down" cases).
+
+![ALB created](docs/screenshots/1.10%20create%20ALB.png)
+
+### Auto Scaling Group across two AZs
+
+ASG with `min=2` instances spread across `eu-west-1a` and `eu-west-1b`.
+
+![Launch Template and ASG](docs/screenshots/1.11%20create%20LT%20and%20ASG.png)
+
+### RDS MySQL Multi-AZ
+
+Synchronous standby in a second AZ, encrypted at rest, no public access, credentials in Secrets Manager.
+
+![RDS Multi-AZ](docs/screenshots/1.12%20%E2%80%94%20RDS%20MySQL%20Multi-AZ.png)
+
+### DynamoDB Global Tables (cross-region state)
+
+Bidirectional replication between `eu-west-1` and `eu-central-1` for session data.
+
+![DynamoDB Global Tables](docs/screenshots/1.13%20%E2%80%94%20DynamoDB%20Global%20Tables.png)
+
+> Full single-point-of-failure analysis in [`spofs.md`](spofs.md). Network and security baseline screenshots (`1.1` – `1.9`) in [`docs/screenshots/`](docs/screenshots).
 
 ---
 
@@ -56,21 +78,41 @@ The complete single-point-of-failure analysis — including remaining SPOFs the 
 
 Three independent scaling mechanisms:
 
-1. **Web tier** — ASG target tracking on `ALBRequestCountPerTarget` (target 200/min) with asymmetric cooldowns (60s out / 300s in) — scale up fast, scale down conservatively.
+1. **Web tier** — ASG target tracking on `ALBRequestCountPerTarget` (target 200/min), asymmetric cooldowns (60s out / 300s in).
 2. **Cache tier** — ElastiCache Redis primary + replica; reader endpoint for read distribution.
 3. **Worker tier** — ECS Fargate driven by SQS; Application Auto Scaling on `ApproximateNumberOfMessagesVisible` (target 5).
 
-### Web tier load test
+### Scaling Policy
 
-Artillery 2.x in three phases (baseline 5 req/s → sustained 50 req/s → cooldown). The ASG responded by jumping straight from 2 instances to the max of 6 in a single scaling decision, then scaled back to 2 over ~3.5 minutes once load ended. Full activity log in `docs/load-test/asg-scaling-history-web.txt`.
+Target tracking automatically creates `AlarmHigh` (scale-out) and `AlarmLow` (scale-in) alarms.
 
-Evidence (chronological): `load-test-web-a-config.png` → `b-artillery-run.png` → `c-scale-out.png` → `d-scale-in.png`.
+![ASG Scaling Policy](docs/screenshots/2.1%20%E2%80%94%20ASG%20scaling%20policy.png)
 
-### Worker tier load test
+### Web tier load test — Scale-out
 
-200 messages injected into `capstone-orders`. CloudWatch's `AlarmHigh` fired in ~3.5 minutes, Application Auto Scaling jumped the Fargate service from 1 → 6 tasks. After queue purge, `AlarmLow` eventually fired and tasks scaled back to 1.
+Under simulated 50 req/s, target tracking jumped the ASG straight from 2 instances to the max of 6 in a single decision.
 
-Evidence: `load-test-worker-a-scale-out.png`, `load-test-worker-b-scale-in.png`. Scaling activity log in `docs/load-test/fargate-scaling-history-worker.txt`.
+![Web tier scale-out](docs/screenshots/load-test-web-c-scale-out.png)
+
+### Web tier load test — Scale-in
+
+Once load ended, scale-in unwound the 4 extra instances over ~3.5 minutes (staggered to avoid capacity cliffs).
+
+![Web tier scale-in](docs/screenshots/load-test-web-d-scale-in.png)
+
+### Worker tier — Scale-out
+
+200 messages injected into `capstone-orders`. CloudWatch's `AlarmHigh` fired in ~3.5 minutes, Application Auto Scaling jumped Fargate from 1 → 6 tasks.
+
+![Worker tier scale-out](docs/screenshots/load-test-worker-a-scale-out.png)
+
+### Worker tier — Scale-in
+
+After queue purge, `AlarmLow` eventually fired and Fargate scaled back to 1 task.
+
+![Worker tier scale-in](docs/screenshots/load-test-worker-b-scale-in.png)
+
+> Raw scaling activity logs (`asg-scaling-history-web.txt`, `fargate-scaling-history-worker.txt`) in [`docs/load-test/`](docs/load-test).
 
 ---
 
@@ -78,25 +120,56 @@ Evidence: `load-test-worker-a-scale-out.png`, `load-test-worker-b-scale-in.png`.
 
 **Pattern:** Warm Standby · **RTO:** 30 min · **RPO:** 5 min
 
-Built a scaled-down replica of the production stack in `eu-central-1`:
+Built a scaled-down replica of the production stack in `eu-central-1` with cross-region data replication and DNS failover.
 
-- **Compute** — ALB + ASG (1 warm instance) ready to scale up on failover
-- **Relational data** — RDS cross-region **read replica** (`capstone-mysql-dr-replica`)
-- **State** — DynamoDB Global Table replica (Day 1)
-- **DNS** — Route 53 hosted zone (`capstone.local`) with failover routing: primary alias to `eu-west-1` ALB with HTTP health check, secondary to `eu-central-1` ALB
-- **Backups** — AWS Backup vaults in both regions, daily plan with cross-region copy, on-demand backup executed as evidence
+### Primary EC2 — Multi-AZ
 
-Full failover procedure (replica promotion, ASG scale-up, DNS verification, config update), failback, and limitations are in [`docs/dr/dr-runbook.md`](docs/dr/dr-runbook.md).
+Web tier instances distributed across `eu-west-1a` and `eu-west-1b`.
 
-**Evidence:** `ha-primary-ec2-multi-az.png`, `ha-primary-rds-multi-az.png`, `ha-primary-alb-serving.png`, `ha-primary-target-group-health.png`, `dr-alb-serving.png`, `dr-rds-replica.png`. CLI captures in [`docs/dr/`](docs/dr).
+![Primary EC2 Multi-AZ](docs/screenshots/ha-primary-ec2-multi-az.png)
+
+### Primary RDS — Multi-AZ
+
+Multi-AZ deployment with synchronous standby (intra-region HA before DR considerations).
+
+![Primary RDS Multi-AZ](docs/screenshots/ha-primary-rds-multi-az.png)
+
+### DR Region — Cross-Region RDS Read Replica
+
+`capstone-mysql-dr-replica` in eu-central-1, continuously replicating from the primary.
+
+![DR RDS Replica](docs/screenshots/dr-rds-replica.png)
+
+### DR Region — Warm Standby Serving
+
+DR ALB live and serving from `eu-central-1a` — proof the warm standby is real, not just provisioned.
+
+![DR ALB serving](docs/screenshots/dr-alb-serving.png)
+
+### Failover plumbing
+
+- **Route 53** hosted zone (`capstone.local`) with failover routing — primary alias to `eu-west-1` ALB with HTTP health check, secondary to `eu-central-1` ALB
+- **AWS Backup** vaults in both regions, daily plan with cross-region copy rule, on-demand backup executed as evidence
+
+> Full failover procedure (replica promotion, ASG scale-up, DNS verification, config update), failback, and limitations in [`docs/dr/dr-runbook.md`](docs/dr/dr-runbook.md). CLI captures in [`docs/dr/`](docs/dr).
 
 ---
 
 ## Day 4 — Observability (15 pts)
 
-**CloudWatch dashboard `capstone-platform`** with seven widgets covering every tier: ALB requests vs 5xx, Web ASG capacity, RDS CPU and connections, SQS depth and message age, Fargate CPU/memory, ElastiCache health, and the **DR RDS replica lag** (RPO indicator, target < 300s).
+### CloudWatch Dashboard (top: web + data tier)
 
-**Custom alarms** beyond AWS's auto-created target-tracking ones:
+ALB requests vs 5xx errors, Web ASG capacity, RDS CPU and connections, SQS depth and message age.
+
+![Observability Dashboard A](docs/screenshots/observability-dashboard-a.png)
+
+### CloudWatch Dashboard (bottom: workers + cache + DR)
+
+Fargate CPU/memory, ElastiCache health, and the DR RDS replica lag — the RPO indicator (target < 300s).
+
+![Observability Dashboard B](docs/screenshots/observability-dashboard-b.png)
+
+### Custom alarms (beyond AWS's auto-created target-tracking ones)
 
 | Alarm                          | Triggers on                             |
 | ------------------------------ | --------------------------------------- |
@@ -106,7 +179,7 @@ Full failover procedure (replica promotion, ASG scale-up, DNS verification, conf
 | `capstone-sqs-message-age`     | Oldest message > 5 min (worker lagging) |
 | `capstone-dr-replica-lag`      | Replica lag > 5 min (RPO violation)     |
 
-**Evidence:** `observability-dashboard-a.png`, `observability-dashboard-b.png`. Dashboard definition and alarm exports in [`docs/observability/`](docs/observability).
+> Dashboard definition and alarm exports in [`docs/observability/`](docs/observability).
 
 ---
 
@@ -118,12 +191,11 @@ Full failover procedure (replica promotion, ASG scale-up, DNS verification, conf
 ├── architecture.svg           ← architecture diagram (SVG source)
 ├── Architecture Diagram.png   ← rendered diagram
 ├── spofs.md                   ← single-point-of-failure analysis
-├── lab.env                    ← captured resource IDs (gitignored in practice)
 └── docs/
     ├── dr/                    ← DR runbook + CLI evidence
     ├── load-test/             ← Artillery configs + scaling activity logs
     ├── observability/         ← Dashboard JSON + alarm exports
-    └── screenshots/           ← All visual evidence (1.x = HA, 2.x = scale, load-test-*, ha-*, dr-*, observability-*)
+    └── screenshots/           ← All visual evidence
 ```
 
 ---
@@ -133,7 +205,7 @@ Full failover procedure (replica promotion, ASG scale-up, DNS verification, conf
 Honest decisions made under the lab's time and cost constraints:
 
 1. **Manual RDS master password** — disabled `ManageMasterUserPassword` on the primary because MySQL cross-region read replicas don't support managed passwords (current AWS limitation). The secret in Secrets Manager remains valid; auto-rotation is a documented follow-up.
-2. **Single AZ in DR compute** — warm standby runs 1 EC2 in `eu-central-1a` only. Multi-AZ DR is documented as a scale-up step in the failover runbook.
+2. **Single AZ in DR compute** — warm standby runs 1 EC2 in `eu-central-1a` only. Multi-AZ DR is a documented scale-up step in the failover runbook.
 3. **HTTPS deferred** — ALBs serve HTTP only; ACM cert + HTTPS listener would be the production add-on but was out of scope for the lab window.
 4. **Placeholder worker task** — the Fargate task is a sleep loop, not a real consumer. Queue-depth scaling was tested in isolation (which is what the rubric measures); a production worker would drain the queue itself.
 
