@@ -1,16 +1,14 @@
 # Capstone Lab — Resilient, Scalable & Recoverable AWS Architecture
 
-> **Course:** Moringa AWS DevOps Capstone (DAWSB-PT02M2)
-> **Author:** Omao Machoka (Joash)
 > **Primary Region:** eu-west-1 (Ireland) · **DR Region:** eu-central-1 (Frankfurt)
 
-## TL;DR
+## Summary
 
 A three-tier web application infrastructure on AWS that survives AZ failures (Multi-AZ HA), scales automatically under load (target-tracking autoscaling on requests and queue depth), and recovers from regional outages (warm-standby DR with 30-min RTO / 5-min RPO). All four rubric pillars demonstrated end-to-end with live infrastructure, executed load tests, and CloudWatch observability.
 
 ## Architecture
 
-![Architecture Diagram](Architecture%20Diagram.png)
+![Architecture Diagram](architecture-diagram.png)
 
 | Tier            | Components                        | Resilience mechanism                            |
 | --------------- | --------------------------------- | ----------------------------------------------- |
@@ -92,13 +90,13 @@ Target tracking automatically creates `AlarmHigh` (scale-out) and `AlarmLow` (sc
 
 Under simulated 50 req/s, target tracking jumped the ASG straight from 2 instances to the max of 6 in a single decision.
 
-![Web tier scale-out](docs/screenshots/load-test-web-c-scale-out.png)
+![Web tier scale-out](docs/screenshots/load-test-web-d-scale-out.png)
 
 ### Web tier load test — Scale-in
 
 Once load ended, scale-in unwound the 4 extra instances over ~3.5 minutes (staggered to avoid capacity cliffs).
 
-![Web tier scale-in](docs/screenshots/load-test-web-d-scale-in.png)
+![Web tier scale-in](docs/screenshots/load-test-web-c-scale-in.png)
 
 ### Worker tier — Scale-out
 
@@ -112,7 +110,7 @@ After queue purge, `AlarmLow` eventually fired and Fargate scaled back to 1 task
 
 ![Worker tier scale-in](docs/screenshots/load-test-worker-b-scale-in.png)
 
-> Raw scaling activity logs (`asg-scaling-history-web.txt`, `fargate-scaling-history-worker.txt`) in [`docs/load-test/`](docs/load-test).
+> Worker scaling activity log: `docs/load-test/fargate-scaling-history-worker.txt`. State snapshot at max: `docs/load-test/worker-state-at-max.txt`.
 
 ---
 
@@ -151,7 +149,7 @@ DR ALB live and serving from `eu-central-1a` — proof the warm standby is real,
 - **Route 53** hosted zone (`capstone.local`) with failover routing — primary alias to `eu-west-1` ALB with HTTP health check, secondary to `eu-central-1` ALB
 - **AWS Backup** vaults in both regions, daily plan with cross-region copy rule, on-demand backup executed as evidence
 
-> Full failover procedure (replica promotion, ASG scale-up, DNS verification, config update), failback, and limitations in [`docs/dr/dr-runbook.md`](docs/dr/dr-runbook.md). CLI captures in [`docs/dr/`](docs/dr).
+> Full failover procedure (replica promotion, ASG scale-up, DNS verification, config update), failback, and limitations in [`docs/dr/dr-runbook.md`](docs/dr/dr-runbook.md). CLI captures (RDS status, Route 53 records, vault listings, backup plan) in [`docs/dr/`](docs/dr).
 
 ---
 
@@ -165,7 +163,7 @@ ALB requests vs 5xx errors, Web ASG capacity, RDS CPU and connections, SQS depth
 
 ### CloudWatch Dashboard (bottom: workers + cache + DR)
 
-Fargate CPU/memory, ElastiCache health, and the DR RDS replica lag — the RPO indicator (target < 300s).
+Fargate worker CPU/memory (the spike at 11:30 and drop to 0% at 12:15 capture the full worker scale-out → scale-in cycle), ElastiCache health, and the DR RDS replica lag — the RPO indicator (target < 300s).
 
 ![Observability Dashboard B](docs/screenshots/observability-dashboard-b.png)
 
@@ -179,7 +177,7 @@ Fargate CPU/memory, ElastiCache health, and the DR RDS replica lag — the RPO i
 | `capstone-sqs-message-age`     | Oldest message > 5 min (worker lagging) |
 | `capstone-dr-replica-lag`      | Replica lag > 5 min (RPO violation)     |
 
-> Dashboard definition and alarm exports in [`docs/observability/`](docs/observability).
+> Dashboard definition (`dashboard-definition.json`) and alarm exports (`alarms-primary.txt`, `alarms-dr.txt`) in [`docs/observability/`](docs/observability).
 
 ---
 
@@ -187,15 +185,29 @@ Fargate CPU/memory, ElastiCache health, and the DR RDS replica lag — the RPO i
 
 ```
 .
-├── README.md                  ← this file
-├── architecture.svg           ← architecture diagram (SVG source)
-├── Architecture Diagram.png   ← rendered diagram
-├── spofs.md                   ← single-point-of-failure analysis
+├── README.md                   ← this file
+├── architecture-diagram.png    ← rendered architecture diagram
+├── architecture.svg            ← architecture diagram (SVG source)
+├── spofs.md                    ← single-point-of-failure analysis
+├── lab.env                     ← captured resource IDs
 └── docs/
-    ├── dr/                    ← DR runbook + CLI evidence
-    ├── load-test/             ← Artillery configs + scaling activity logs
-    ├── observability/         ← Dashboard JSON + alarm exports
-    └── screenshots/           ← All visual evidence
+    ├── dr/
+    │   ├── dr-runbook.md
+    │   ├── backup-job-status.txt
+    │   ├── backup-plan.json
+    │   ├── backup-vaults.txt
+    │   ├── dr-alb-targets.txt
+    │   ├── dynamodb-global-table.txt
+    │   ├── rds-replica-status.txt
+    │   └── route53-failover-records.txt
+    ├── load-test/
+    │   ├── fargate-scaling-history-worker.txt
+    │   └── worker-state-at-max.txt
+    ├── observability/
+    │   ├── alarms-primary.txt
+    │   ├── alarms-dr.txt
+    │   └── dashboard-definition.json
+    └── screenshots/            ← all visual evidence (HA 1.x, Scalability 2.x, load-test-*, ha-*, dr-*, observability-*)
 ```
 
 ---
