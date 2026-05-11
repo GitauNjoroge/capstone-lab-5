@@ -8,7 +8,7 @@ A three-tier web application infrastructure on AWS that survives AZ failures (Mu
 
 ## Architecture
 
-![Architecture Diagram](architecture-diagram.png)
+![Architecture Diagram](docs/architecture-diagram.png)
 
 | Tier            | Components                        | Resilience mechanism                            |
 | --------------- | --------------------------------- | ----------------------------------------------- |
