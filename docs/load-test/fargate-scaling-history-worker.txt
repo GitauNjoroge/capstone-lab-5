@@ -1,0 +1,16 @@
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                                           DescribeScalingActivities                                                                                          |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+||                                                                                              ScalingActivities                                                                                             ||
+|+-------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+|
+||  ActivityId       |  50c52bdd-b583-4716-ae3a-bfdd86f2f53a                                                                                                                                                  ||
+||  Cause            |  monitor alarm TargetTracking-service/capstone-cluster/capstone-worker-AlarmHigh-d976eb24-2f5a-420f-a504-bcc35a0bb1e0 in state ALARM triggered policy capstone-worker-scale-on-queue   ||
+||  Description      |  Setting desired count to 6.                                                                                                                                                           ||
+||  EndTime          |  2026-05-11T11:34:16.510000+03:00                                                                                                                                                      ||
+||  ResourceId       |  service/capstone-cluster/capstone-worker                                                                                                                                              ||
+||  ScalableDimension|  ecs:service:DesiredCount                                                                                                                                                              ||
+||  ServiceNamespace |  ecs                                                                                                                                                                                   ||
+||  StartTime        |  2026-05-11T11:33:40.617000+03:00                                                                                                                                                      ||
+||  StatusCode       |  Successful                                                                                                                                                                            ||
+||  StatusMessage    |  Successfully set desired count to 6. Change successfully fulfilled by ecs.                                                                                                            ||
+|+-------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+|

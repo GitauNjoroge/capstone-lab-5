@@ -1,0 +1,13 @@
+{
+    "Name": "capstone-backup-plan",
+    "Rules": [
+        {
+            "Rule": "daily-with-cross-region-copy",
+            "Schedule": "cron(0 5 ? * * *)",
+            "Vault": "capstone-vault-primary",
+            "CopyTo": [
+                "arn:aws:backup:eu-central-1:574128098399:backup-vault:capstone-vault-dr"
+            ]
+        }
+    ]
+}

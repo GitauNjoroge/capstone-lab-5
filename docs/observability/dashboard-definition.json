@@ -1,0 +1,88 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0, "y": 0, "width": 12, "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/capstone-alb/4b29a9fd5daee922", {"stat": "Sum", "label": "Requests"}],
+          [".", "HTTPCode_Target_5XX_Count", ".", ".", {"stat": "Sum", "label": "5xx errors", "color": "#d62728"}]
+        ],
+        "period": 60, "region": "eu-west-1",
+        "title": "Primary ALB — Requests vs 5xx Errors"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 0, "width": 12, "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", "capstone-web-asg", {"label": "Desired"}],
+          [".", "GroupInServiceInstances", ".", ".", {"label": "In-Service"}]
+        ],
+        "period": 60, "stat": "Average", "region": "eu-west-1",
+        "title": "Web ASG — Capacity"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 6, "width": 12, "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "capstone-mysql-primary", {"label": "CPU %"}],
+          [".", "DatabaseConnections", ".", ".", {"label": "Connections", "yAxis": "right"}]
+        ],
+        "period": 60, "stat": "Average", "region": "eu-west-1",
+        "title": "RDS Primary — CPU & Connections"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 6, "width": 12, "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "capstone-orders", {"label": "Visible"}],
+          [".", "ApproximateAgeOfOldestMessage", ".", ".", {"label": "Oldest age (s)", "yAxis": "right"}]
+        ],
+        "period": 60, "stat": "Maximum", "region": "eu-west-1",
+        "title": "SQS Orders Queue — Depth & Age"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 12, "width": 12, "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/ECS", "CPUUtilization", "ClusterName", "capstone-cluster", "ServiceName", "capstone-worker", {"label": "CPU %"}],
+          [".", "MemoryUtilization", ".", ".", ".", ".", {"label": "Memory %"}]
+        ],
+        "period": 60, "stat": "Average", "region": "eu-west-1",
+        "title": "Fargate Worker — Resource Utilization"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 12, "width": 12, "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/ElastiCache", "CPUUtilization", "CacheClusterId", "capstone-redis-001", {"label": "CPU %"}],
+          [".", "DatabaseMemoryUsagePercentage", ".", ".", {"label": "Memory %"}],
+          [".", "CacheHits", ".", ".", {"label": "Hits", "yAxis": "right"}]
+        ],
+        "period": 60, "stat": "Average", "region": "eu-west-1",
+        "title": "ElastiCache Redis — Health"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 18, "width": 24, "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/RDS", "ReplicaLag", "DBInstanceIdentifier", "capstone-mysql-dr-replica", {"region": "eu-central-1", "label": "Replica lag (s)"}]
+        ],
+        "period": 60, "stat": "Maximum", "region": "eu-central-1",
+        "title": "DR — RDS Replica Lag (RPO indicator, target < 300s)"
+      }
+    }
+  ]
+}

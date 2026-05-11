@@ -1,0 +1,10 @@
+-----------------------------------------------------------------------------------------
+|                                  DescribeDBInstances                                  |
++------------+--------------------------------------------------------------------------+
+|  Class     |  db.t3.micro                                                             |
+|  Endpoint  |  capstone-mysql-dr-replica.c9s06ocwosjo.eu-central-1.rds.amazonaws.com   |
+|  Engine    |  mysql                                                                   |
+|  Identifier|  capstone-mysql-dr-replica                                               |
+|  SourceDB  |  arn:aws:rds:eu-west-1:574128098399:db:capstone-mysql-primary            |
+|  Status    |  available                                                               |
++------------+--------------------------------------------------------------------------+

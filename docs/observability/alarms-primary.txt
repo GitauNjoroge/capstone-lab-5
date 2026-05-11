@@ -1,0 +1,8 @@
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                                  DescribeAlarms                                                                                  |
++------------------------------+---------------------+--------------------------------+--------+-----------------------+-----------------------------------------------------------+
+|  capstone-alb-5xx-errors     |  AWS/ApplicationELB |  HTTPCode_Target_5XX_Count     |  10.0  |  GreaterThanThreshold |  ALB target returning 5xx errors (> 10/min for 2 min)     |
+|  capstone-alb-unhealthy-hosts|  AWS/ApplicationELB |  UnHealthyHostCount            |  0.0   |  GreaterThanThreshold |  ALB target group has unhealthy targets for 3 min         |
+|  capstone-rds-high-cpu       |  AWS/RDS            |  CPUUtilization                |  80.0  |  GreaterThanThreshold |  RDS primary CPU > 80% for 10 minutes                     |
+|  capstone-sqs-message-age    |  AWS/SQS            |  ApproximateAgeOfOldestMessage |  300.0 |  GreaterThanThreshold |  Oldest SQS message > 5 minutes (worker falling behind)   |
++------------------------------+---------------------+--------------------------------+--------+-----------------------+-----------------------------------------------------------+
