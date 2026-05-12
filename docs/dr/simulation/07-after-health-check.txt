@@ -1,0 +1,11 @@
+--------------------------------------------------------------------------------------
+|                                GetHealthCheckStatus                                |
++----------------+-------------------------------------------------------------------+
+|     Region     |                              Status                               |
++----------------+-------------------------------------------------------------------+
+|  eu-west-1     |  Success: HTTP Status Code 200, OK. Resolved IP: 54.229.143.160   |
+|  ap-northeast-1|  Success: HTTP Status Code 200, OK. Resolved IP: 54.155.203.123   |
+|  us-west-1     |  Success: HTTP Status Code 200, OK. Resolved IP: 54.155.203.123   |
+|  sa-east-1     |  Success: HTTP Status Code 200, OK. Resolved IP: 54.229.143.160   |
+|  sa-east-1     |  Success: HTTP Status Code 200, OK. Resolved IP: 54.229.143.160   |
++----------------+-------------------------------------------------------------------+
