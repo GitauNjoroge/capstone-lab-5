@@ -153,6 +153,30 @@ DR ALB live and serving from `eu-central-1a` — proof the warm standby is real,
 
 ---
 
+### DR Simulation — Detection → Failover → Recovery
+
+A failover drill was executed by temporarily pointing the Route 53 primary health check at a non-existent path (`/does-not-exist`), forcing it to fail without disrupting actual traffic. The mechanism was exercised end-to-end and reversed within ~7 minutes.
+
+**Route 53 failover configuration** — `app.capstone.local` has two A records with failover routing policy: primary aliased to the eu-west-1 ALB (with health check), secondary aliased to the eu-central-1 ALB.
+
+![DR Failover Records](docs/screenshots/dr-failover-records.png)
+
+**During failure** — Health check observations report `Failure: HTTP Status Code 404` across all five AWS probe regions. `app.capstone.local` now resolves to the DR ALB IPs (`52.57.x`, `63.184.x` — eu-central-1 range). DR ALB independently verified serving `HTTP/1.1 200 OK`.
+
+![DR Simulation — Failure State](docs/screenshots/dr-simulation-failure.png)
+
+**After recovery** — Health check path restored to `/`. All five probe regions report `Success: HTTP 200` within ~3 minutes. `app.capstone.local` now resolves back to the primary ALB IPs (`54.155.x`, `54.229.x` — eu-west-1 range).
+
+![DR Simulation — Recovery State](docs/screenshots/dr-simulation-recovery.png)
+
+| Phase             | Health check status                 | DNS resolves to | IPs observed                         |
+| ----------------- | ----------------------------------- | --------------- | ------------------------------------ |
+| Before            | Success (HTTP 200)                  | Primary ALB     | `54.155.x`, `54.229.x` (eu-west-1)   |
+| Failure simulated | Failure (HTTP 404) across 5 regions | DR ALB          | `52.57.x`, `63.184.x` (eu-central-1) |
+| Recovery          | Success (HTTP 200)                  | Primary ALB     | `54.155.x`, `54.229.x` (eu-west-1)   |
+
+> Complete timestamped CLI evidence (8 files spanning before / during / after) in [`docs/dr/simulation/`](docs/dr/simulation).
+
 ## Day 4 — Observability (15 pts)
 
 ### CloudWatch Dashboard (top: web + data tier)
